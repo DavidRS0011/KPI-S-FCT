@@ -173,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.orange, Colors.deepOrange],
+            colors: [Colors.blue, Colors.cyan], // Colores fríos para la app de tecnología
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -250,7 +250,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 child: ElevatedButton(
                   onPressed: _loginWithEmail,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                    backgroundColor: Colors.blue, // Botón principal en azul
                     padding: const EdgeInsets.symmetric(vertical: 16.0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.0),
@@ -282,7 +282,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   }
                 },
               ),
-              
             ],
           ),
         ),

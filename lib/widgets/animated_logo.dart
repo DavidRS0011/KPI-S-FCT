@@ -15,7 +15,7 @@ class AnimatedLogo extends StatelessWidget {
           child: Transform.translate(
             offset: Offset(0, controller.value * -10), // Rebote
             child: Image.asset(
-              'assets/food_logo.png',
+              'assets/smartphone_logo.png',
               width: 100,
               height: 100,
             ),

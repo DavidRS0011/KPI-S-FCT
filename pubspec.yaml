@@ -28,7 +28,7 @@ flutter:
   uses-material-design: true
   
   assets:
-    - assets/food_logo.png
+    - assets/smartphone_logo.png
 
 dependency_overrides:
   google_sign_in_web: null
