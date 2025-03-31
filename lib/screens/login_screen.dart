@@ -4,13 +4,12 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter_signin_button/flutter_signin_button.dart';
 import '../widgets/animated_logo.dart';
-import 'package:kpi_s_fct/screens/home_screen.dart'; // Ajusta la ruta según tu estructura de proyecto
-import 'services/auth_service.dart'; // Importa el servicio de autenticación
+import 'package:kpi_s_fct/screens/home_screen.dart';
+import 'services/auth_service.dart'; // Servicio de autenticación
 import 'dart:js' as js;
 
-// Configuración de GoogleSignIn para dispositivos móviles
 final GoogleSignIn googleSignIn = GoogleSignIn(
-  scopes: ['email'], // Solicita acceso al correo electrónico del usuario
+  scopes: ['email'],
 );
 
 class LoginScreen extends StatefulWidget {
@@ -25,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final TextEditingController _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   late AnimationController _controller;
+  bool _isLoading = false; // Estado de carga
   final AuthServices _authServices = AuthServices(); // Instancia del servicio de autenticación
 
   @override
@@ -33,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat(reverse: true); // Animación de ida y vuelta
+    )..repeat(reverse: true);
   }
 
   @override
@@ -49,121 +49,141 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   Future<void> _loginWithEmail() async {
     if (_formKey.currentState!.validate()) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+      setState(() {
+        _isLoading = true;
+      });
       try {
         UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _usernameController.text,
           password: _passwordController.text,
         );
-        Navigator.pop(context); // Cierra el indicador de carga
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome, ${userCredential.user?.displayName ?? 'User'}!')),
+          SnackBar(content: Text('Bienvenido, ${userCredential.user?.displayName ?? 'Usuario'}!')),
         );
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       } on FirebaseAuthException catch (e) {
-        Navigator.pop(context); // Cierra el indicador de carga
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'An error occurred')),
+          SnackBar(content: Text(e.message ?? 'Ocurrió un error')),
         );
       }
     }
   }
 
   Future<void> _loginWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+    });
     try {
-      final userCredential = await _authServices.signInWithGoogle(); // Llama al método del servicio
+      final userCredential = await _authServices.signInWithGoogle();
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Welcome, ${userCredential.user?.displayName ?? 'User'}!')),
+        SnackBar(content: Text('Bienvenido, ${userCredential.user?.displayName ?? 'Usuario'}!')),
       );
-      Navigator.push(
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
     } on FirebaseAuthException catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'An error occurred during Google sign-in')),
+        SnackBar(content: Text(e.message ?? 'Error al iniciar sesión con Google')),
       );
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An unexpected error occurred: $e')),
+        SnackBar(content: Text('Error inesperado: $e')),
       );
     }
   }
 
   Future<void> _loginWithFacebook() async {
+    setState(() {
+      _isLoading = true;
+    });
     try {
-      final LoginResult result = await FacebookAuth.instance.login();
-      if (result.status == LoginStatus.success && result.accessToken != null) {
-        final String accessToken = result.accessToken!.tokenString;
-        final credential = FacebookAuthProvider.credential(accessToken);
-        final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome, ${userCredential.user?.displayName ?? 'User'}!')),
-        );
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+      if (js.context.hasProperty('FB')) {
+        await _loginWithFacebookWeb();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.message ?? 'Facebook login failed')),
-        );
+        await _loginWithFacebookMobile();
       }
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
     }
   }
 
+  Future<void> _loginWithFacebookMobile() async {
+    final LoginResult result = await FacebookAuth.instance.login();
+    if (result.status == LoginStatus.success && result.accessToken != null) {
+      final String accessToken = result.accessToken!.tokenString;
+      final credential = FacebookAuthProvider.credential(accessToken);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Bienvenido, ${userCredential.user?.displayName ?? 'Usuario'}!')),
+      );
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message ?? 'Error al iniciar sesión con Facebook')),
+      );
+    }
+  }
+
   Future<void> _loginWithFacebookWeb() async {
-    try {
-      // Verifica si el objeto FB y el método FB.login están disponibles
-      if (js.context.hasProperty('FB') && js.context['FB'].hasProperty('login')) {
-        js.context.callMethod('FB.login', [
-          (response) {
-            if (response['status'] == 'connected') {
-              final accessToken = response['authResponse']['accessToken'];
-              print('Facebook Access Token: $accessToken');
-              // Aquí puedes usar el accessToken para autenticarte con Firebase
-            } else {
-              print('Facebook login failed: ${response['status']}');
-            }
-          },
-          {'scope': 'email,public_profile'}
-        ]);
-      } else {
-        print('Facebook SDK not loaded or FB.login is undefined');
-      }
-    } catch (e) {
-      print('Error during Facebook login: $e');
+    if (js.context.hasProperty('FB') && js.context['FB'].hasProperty('login')) {
+      js.context.callMethod('FB.login', [
+        (response) {
+          if (response['status'] == 'connected') {
+            final accessToken = response['authResponse']['accessToken'];
+            print('Facebook Access Token: $accessToken');
+            // Usa el accessToken para autenticarte con Firebase
+          } else {
+            print('Error de inicio de sesión con Facebook: ${response['status']}');
+          }
+        },
+        {'scope': 'email,public_profile'}
+      ]);
+    } else {
+      print('SDK de Facebook no cargado');
     }
   }
 
   void _resetPassword() {
     final email = _usernameController.text;
-    if (email.isEmpty) {
+    if (email.isEmpty || !RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email')),
-      );
-      return;
-    }
-    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email address')),
+        const SnackBar(content: Text('Por favor, ingresa un correo válido')),
       );
       return;
     }
     FirebaseAuth.instance.sendPasswordResetEmail(email: email);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Password reset email sent')),
+      const SnackBar(content: Text('Correo de restablecimiento de contraseña enviado')),
     );
   }
 
@@ -173,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.blue, Colors.cyan], // Colores fríos para la app de tecnología
+            colors: [Colors.blue, Colors.cyan],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -184,15 +204,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo animado
               AnimatedLogo(controller: _controller),
               const SizedBox(height: 32.0),
-
-              // Campo de texto para el nombre de usuario
               TextFormField(
                 controller: _usernameController,
                 decoration: InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'Correo electrónico',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8.0),
                   ),
@@ -200,21 +217,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Por favor, ingresa tu correo';
                   }
                   if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                    return 'Please enter a valid email address';
+                    return 'Correo no válido';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16.0),
-
-              // Campo de texto para la contraseña
               TextFormField(
                 controller: _passwordController,
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: 'Contraseña',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8.0),
                   ),
@@ -223,65 +238,55 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 obscureText: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
+                    return 'Por favor, ingresa tu contraseña';
                   }
                   if (!RegExp(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$')
                       .hasMatch(value)) {
-                    return 'Password must contain at least 8 characters, including uppercase, lowercase, number, and special character';
+                    return 'La contraseña debe tener al menos 8 caracteres, incluyendo mayúsculas, minúsculas, números y un carácter especial';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 8.0),
-
-              // Botón para restablecer la contraseña
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: _resetPassword,
-                  child: const Text('Forgot Password?'),
+                  child: const Text('¿Olvidaste tu contraseña?'),
                 ),
               ),
               const SizedBox(height: 16.0),
-
-              // Botón para iniciar sesión con correo electrónico
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _loginWithEmail,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue, // Botón principal en azul
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
+              if (_isLoading) 
+                const CircularProgressIndicator(),
+              if (!_isLoading)
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _loginWithEmail,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          padding: const EdgeInsets.symmetric(vertical: 16.0),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                        ),
+                        child: const Text('Iniciar sesión'),
+                      ),
                     ),
-                  ),
-                  child: const Text('Login'),
+                    const SizedBox(height: 16.0),
+                    SignInButton(
+                      Buttons.Google,
+                      onPressed: _loginWithGoogle,
+                    ),
+                    const SizedBox(height: 16.0),
+                    SignInButton(
+                      Buttons.Facebook,
+                      onPressed: _loginWithFacebook,
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 16.0),
-
-              // Botón para iniciar sesión con Google
-              SignInButton(
-                Buttons.Google,
-                onPressed: _loginWithGoogle,
-              ),
-              const SizedBox(height: 16.0),
-
-              // Botón para iniciar sesión con Facebook (funciona tanto en web como en móviles)
-              SignInButton(
-                Buttons.Facebook,
-                onPressed: () async {
-                  // Verifica si estás en la web o en un dispositivo móvil
-                  if (js.context.hasProperty('FB')) {
-                    // Lógica para la web
-                    await _loginWithFacebookWeb();
-                  } else {
-                    // Lógica para dispositivos móviles
-                    await _loginWithFacebook();
-                  }
-                },
-              ),
             ],
           ),
         ),
